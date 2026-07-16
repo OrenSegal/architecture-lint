@@ -40,7 +40,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-BASELINE_FILE="${REPO_ROOT}/.arch_lint_baseline.json"
+BASELINE_FILE="${ARCH_LINT_BASELINE_FILE:-${REPO_ROOT}/.arch_lint_baseline.json}"
 
 # ---------------------------------------------------------------------------
 # Config — edit for your codebase's module graph.
@@ -61,9 +61,11 @@ BOUNDARIES=(
 )
 
 # Directory holding your modules, and the source-file glob to lint.
-MODULES_ROOT="src"
-FILE_GLOB="*.ts"          # e.g. "*.swift", "*.py", "*.go"
-IMPORT_KEYWORD="import"   # e.g. "import", "from", "require("
+# Overridable via env (ARCH_LINT_*) so the same script can be exercised
+# against multiple fixture languages in tests/run.sh without editing this file.
+MODULES_ROOT="${ARCH_LINT_MODULES_ROOT:-src}"
+FILE_GLOB="${ARCH_LINT_FILE_GLOB:-*.ts}"          # e.g. "*.swift", "*.py", "*.go"
+IMPORT_KEYWORD="${ARCH_LINT_IMPORT_KEYWORD:-import}"   # e.g. "import", "from", "require("
 
 # ---------------------------------------------------------------------------
 # Boundary check
@@ -104,7 +106,9 @@ echo "Boundary checks run: $CHECKS"
 #
 # This is the part worth stealing even if you don't use the boundary check
 # above: any grep-able anti-pattern can be gated this way without requiring
-# a big-bang cleanup before the gate can go live.
+# a big-bang cleanup before the gate can go live. The regex below is a Swift
+# example (`static let shared`) — swap it for your language's singleton
+# idiom (`_instance = None`, `getInstance()`, etc).
 # ---------------------------------------------------------------------------
 
 singleton_hits=$(

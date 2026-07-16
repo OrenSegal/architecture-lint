@@ -1,5 +1,7 @@
 # architecture-lint
 
+[![CI](https://github.com/OrenSegal/architecture-lint/actions/workflows/ci.yml/badge.svg)](https://github.com/OrenSegal/architecture-lint/actions/workflows/ci.yml)
+
 A config-driven module-boundary linter with a ratchet baseline, extracted from
 patterns I use to keep a large production Swift codebase honest about its own
 architecture docs.
@@ -43,7 +45,50 @@ file nobody reads six months later.
 
 Edit the `BOUNDARIES` array and the `MODULES_ROOT` / `FILE_GLOB` /
 `IMPORT_KEYWORD` variables at the top of the script for your codebase's
-language and module layout.
+language and module layout. All three are overridable via `ARCH_LINT_*`
+environment variables — `tests/run.sh` uses this to exercise the same script
+against fixtures in three different languages without editing the file.
+
+## Real output
+
+Run against `tests/fixtures/violation`, where `Domain/User.ts` imports from
+`UI/`, a boundary the config forbids:
+
+```
+Architecture Lint
+==================
+
+x Domain must not import UI:
+   tests/fixtures/violation/src/Domain/User.ts
+
+Boundary checks run: 5
+
+Ratchet: no_singletons (baseline=0, current=0)
+  OK: at or within baseline
+
+x Architecture lint failed: 1 violation(s)
+  Fix them, or add an inline exemption with justification.
+```
+
+Exit code `1`. Run it against `tests/fixtures/clean` and it's exit `0`,
+silent boundary section, same ratchet line.
+
+## Tests
+
+```bash
+./tests/run.sh
+```
+
+Five fixture-backed cases, each asserting a real exit code against the real
+script — no mocking, this is the same binary the usage example above ran:
+
+- a clean module graph passes
+- a boundary violation (`Domain` importing `UI`) fails
+- a singleton at baseline passes
+- a new singleton beyond the baseline is caught as a regression
+- an `// arch-exempt: singleton` comment excludes that line from the count
+
+CI runs this suite on every push (see the badge above).
 
 ## Why I built this
 
@@ -52,6 +97,3 @@ concurrency, six-package architecture). There's no team to catch an
 accidental layering violation in review, so the CI gate has to. This is the
 generalized, sanitized version of a script that runs on every commit in that
 codebase.
-
-More on the production side of that stack (cost control, caching, circuit
-breakers for LLM calls): [What Running an LLM in Production Actually Costs You](https://dev.to/orens/what-running-an-llm-in-production-actually-costs-you-20ih).
