@@ -52,16 +52,19 @@ against fixtures in three different languages without editing the file.
 ## Real output
 
 Run against `tests/fixtures/violation`, where `Domain/User.ts` imports from
-`UI/`, a boundary the config forbids:
+`UI/`, a boundary the config forbids, with an empty (all-zero) baseline:
 
 ```
 Architecture Lint
 ==================
 
 x Domain must not import UI:
-   tests/fixtures/violation/src/Domain/User.ts
+   tests/fixtures/violation/src/Domain/User.ts:1:import { renderScreen } from '../UI/Screen';
 
 Boundary checks run: 5
+
+Ratchet: boundaries (baseline=0, current=1)
+  REGRESSION: 1 new violation(s)
 
 Ratchet: no_singletons (baseline=0, current=0)
   OK: at or within baseline
@@ -70,8 +73,16 @@ x Architecture lint failed: 1 violation(s)
   Fix them, or add an inline exemption with justification.
 ```
 
-Exit code `1`. Run it against `tests/fixtures/clean` and it's exit `0`,
-silent boundary section, same ratchet line.
+Exit code `1`. Run it against `tests/fixtures/clean` with that same baseline
+and boundary violations are now *below* baseline, which is reported as
+"Improved" rather than a failure — exit `0`.
+
+Both rules — the boundary check and `no_singletons` — are ratcheted the same
+way: the baseline records a violation *count* (not just which rules were
+broken), and only new violations beyond that count fail the gate. This is
+why turning this on in a codebase that already has boundary violations
+doesn't require fixing them all first — run `--init-baseline` once and only
+new violations are gated from then on.
 
 ## Tests
 
@@ -79,14 +90,20 @@ silent boundary section, same ratchet line.
 ./tests/run.sh
 ```
 
-Five fixture-backed cases, each asserting a real exit code against the real
+Ten fixture-backed cases, each asserting a real exit code against the real
 script — no mocking, this is the same binary the usage example above ran:
 
 - a clean module graph passes
-- a boundary violation (`Domain` importing `UI`) fails
+- a boundary violation (`Domain` importing `UI`) fails against a zero baseline
 - a singleton at baseline passes
 - a new singleton beyond the baseline is caught as a regression
 - an `// arch-exempt: singleton` comment excludes that line from the count
+- a boundary violation count at baseline passes
+- a new boundary violation beyond the baseline is caught as a regression
+- fewer current violations than baseline reports "Improved" and still passes
+- a missing baseline file exits 1 with a message
+- an anchored import match (`import CoreData`) doesn't false-positive against
+  a `Data` boundary rule
 
 CI runs this suite on every push (see the badge above).
 

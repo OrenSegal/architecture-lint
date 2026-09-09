@@ -4,33 +4,33 @@
 # Config-driven package/module boundary enforcement with a ratchet baseline.
 #
 # Why this exists: architecture docs rot the moment nobody's forced to check
-# them. This script makes the allowed dependency graph and a couple of
-# structural rules (no singletons, required concurrency-isolation annotation)
-# machine-checked instead of aspirational. It's designed to be dropped into
-# any modular codebase (Swift packages, TS workspaces, Python packages, Go
-# modules — anything with directories and an import/grep-able syntax) with a
-# few lines of config, not a rewrite.
+# them. This script makes the allowed dependency graph and a structural rule
+# (no singletons) machine-checked instead of aspirational. It's designed to
+# be dropped into any modular codebase (Swift packages, TS workspaces,
+# Python packages, Go modules — anything with directories and an
+# import/grep-able syntax) with a few lines of config, not a rewrite.
 #
 # Two properties make this durable in a real codebase instead of getting
 # disabled after the first false positive:
 #
-#   1. Ratchet baseline (.arch_lint_baseline.json) — existing violations are
-#      grandfathered in, not blocked. The gate only fails on NEW violations.
-#      The baseline number may only shrink over time, never grow. This is
-#      what makes it possible to introduce a lint rule into a codebase that
-#      already has debt, without a giant one-time fix-everything PR.
+#   1. Ratchet baseline (.arch_lint_baseline.json) — existing violations
+#      (boundary violations AND singletons) are grandfathered in, not
+#      blocked. The gate only fails on NEW violations. The baseline numbers
+#      may only shrink over time, never grow. This is what makes it possible
+#      to introduce this into a codebase that already has debt, without a
+#      giant one-time fix-everything PR.
 #
 #   2. Inline exemptions (`// arch-exempt: <rule>`) — for the rare case where
 #      breaking a rule is the right call (e.g. a framework requires a
 #      singleton), the exemption is visible right next to the code, not
-#      hidden in a config file nobody reads.
+#      hidden in a config file nobody reads. This currently applies to the
+#      singleton rule only, not boundary violations.
 #
 # Usage:
 #   ./architecture-lint.sh                # check + ratchet, exit 1 on regression
 #   ./architecture-lint.sh --init-baseline # write current violation counts as baseline
 #
-# Config: edit BOUNDARIES below (or externalize to arch-lint.config.json —
-# left inline here for readability).
+# Config: edit BOUNDARIES below.
 
 set -euo pipefail
 
@@ -44,7 +44,8 @@ BASELINE_FILE="${ARCH_LINT_BASELINE_FILE:-${REPO_ROOT}/.arch_lint_baseline.json}
 
 # ---------------------------------------------------------------------------
 # Config — edit for your codebase's module graph.
-# Format: "module_dir|forbidden_import_pattern"
+# Format: "module_dir|forbidden_import_module" (matched as a whole word, not
+# a substring — "Data" won't match "CoreData").
 # Example below models a common layered architecture:
 #   Domain (innermost, zero deps) → Data/Services → UI → App (outermost)
 # ---------------------------------------------------------------------------
@@ -68,11 +69,14 @@ FILE_GLOB="${ARCH_LINT_FILE_GLOB:-*.ts}"          # e.g. "*.swift", "*.py", "*.g
 IMPORT_KEYWORD="${ARCH_LINT_IMPORT_KEYWORD:-import}"   # e.g. "import", "from", "require("
 
 # ---------------------------------------------------------------------------
-# Boundary check
+# Boundary check — counts actual violating import lines (not just how many
+# rules were broken), ratcheted against a baseline the same way as
+# no_singletons below.
 # ---------------------------------------------------------------------------
 
-VIOLATIONS=0
 CHECKS=0
+VIOLATIONS=0
+current_boundaries=0
 
 check_no_import() {
   local module="$1" forbidden="$2"
@@ -81,11 +85,13 @@ check_no_import() {
 
   CHECKS=$((CHECKS + 1))
   local hits
-  hits=$(grep -rln "${IMPORT_KEYWORD}.*${forbidden}" "$dir" --include="$FILE_GLOB" 2>/dev/null || true)
+  hits=$(grep -rnE "${IMPORT_KEYWORD}.*\b${forbidden}\b" "$dir" --include="$FILE_GLOB" 2>/dev/null || true)
   if [ -n "$hits" ]; then
+    local count
+    count=$(echo "$hits" | grep -c .)
+    current_boundaries=$((current_boundaries + count))
     echo -e "${RED}x ${module} must not import ${forbidden}:${NC}"
     echo "$hits" | sed 's/^/   /'
-    VIOLATIONS=$((VIOLATIONS + 1))
   fi
 }
 
@@ -122,10 +128,11 @@ current_singletons=$(echo "$singleton_hits" | grep -c . || true)
 if [ "${1:-}" == "--init-baseline" ]; then
   cat > "$BASELINE_FILE" <<EOF
 {
-  "no_singletons": ${current_singletons}
+  "no_singletons": ${current_singletons},
+  "boundaries": ${current_boundaries}
 }
 EOF
-  echo -e "${GREEN}Baseline written: no_singletons=${current_singletons}${NC}"
+  echo -e "${GREEN}Baseline written: no_singletons=${current_singletons}, boundaries=${current_boundaries}${NC}"
   exit 0
 fi
 
@@ -135,6 +142,25 @@ if [ ! -f "$BASELINE_FILE" ]; then
 fi
 
 baseline_singletons=$(grep '"no_singletons"' "$BASELINE_FILE" | grep -oE '[0-9]+')
+
+baseline_boundaries=$(grep '"boundaries"' "$BASELINE_FILE" 2>/dev/null | grep -oE '[0-9]+' || true)
+if [ -z "$baseline_boundaries" ]; then
+  baseline_boundaries=0
+  echo -e "${YELLOW}No boundaries baseline found in ${BASELINE_FILE} (older baseline file) — defaulting to 0.${NC}"
+fi
+
+echo ""
+echo "Ratchet: boundaries (baseline=${baseline_boundaries}, current=${current_boundaries})"
+
+if [ "$current_boundaries" -gt "$baseline_boundaries" ]; then
+  new_count=$((current_boundaries - baseline_boundaries))
+  echo -e "${RED}  REGRESSION: ${new_count} new violation(s)${NC}"
+  VIOLATIONS=$((VIOLATIONS + new_count))
+elif [ "$current_boundaries" -lt "$baseline_boundaries" ]; then
+  echo -e "${GREEN}  Improved: ${current_boundaries} violations (baseline was ${baseline_boundaries}) - shrink the baseline file${NC}"
+else
+  echo -e "${GREEN}  OK: at or within baseline${NC}"
+fi
 
 echo ""
 echo "Ratchet: no_singletons (baseline=${baseline_singletons}, current=${current_singletons})"

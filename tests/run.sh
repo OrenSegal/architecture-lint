@@ -33,9 +33,16 @@ check "clean fixture passes" 0 \
 rm -f "$BASELINE_A"
 
 # --- Boundary check: Domain importing UI is a violation --------------------
+# Baseline is written by hand at zero (not via --init-baseline against the
+# dirty fixture itself) so this exercises a boundary violation with nothing
+# in the ratchet to absorb it.
 BASELINE_B="$(mktemp -t arch-lint-baseline-violation).json"
-ARCH_LINT_MODULES_ROOT="${TEST_DIR}/fixtures/violation/src" ARCH_LINT_BASELINE_FILE="$BASELINE_B" \
-  "$SCRIPT" --init-baseline >/dev/null
+cat > "$BASELINE_B" <<'EOF'
+{
+  "no_singletons": 0,
+  "boundaries": 0
+}
+EOF
 check "Domain importing UI fails" 1 \
   env ARCH_LINT_MODULES_ROOT="${TEST_DIR}/fixtures/violation/src" ARCH_LINT_BASELINE_FILE="$BASELINE_B" "$SCRIPT"
 rm -f "$BASELINE_B"
@@ -62,6 +69,44 @@ check "arch-exempt comment excludes singleton from count" 0 \
   env ARCH_LINT_MODULES_ROOT="${TEST_DIR}/fixtures/singleton-exempt/src" ARCH_LINT_FILE_GLOB='*.swift' \
   ARCH_LINT_BASELINE_FILE="$BASELINE_D" "$SCRIPT"
 rm -f "$BASELINE_D"
+
+# --- Ratchet: at-baseline boundary violation count passes -------------------
+BASELINE_E="$(mktemp -t arch-lint-baseline-boundary-ok).json"
+ARCH_LINT_MODULES_ROOT="${TEST_DIR}/fixtures/boundary-ratchet-ok/src" \
+  ARCH_LINT_BASELINE_FILE="$BASELINE_E" "$SCRIPT" --init-baseline >/dev/null
+check "boundary violation at baseline passes" 0 \
+  env ARCH_LINT_MODULES_ROOT="${TEST_DIR}/fixtures/boundary-ratchet-ok/src" \
+  ARCH_LINT_BASELINE_FILE="$BASELINE_E" "$SCRIPT"
+
+# --- Ratchet: a new boundary violation beyond baseline is a regression -----
+check "new boundary violation beyond baseline fails" 1 \
+  env ARCH_LINT_MODULES_ROOT="${TEST_DIR}/fixtures/boundary-ratchet-regression/src" \
+  ARCH_LINT_BASELINE_FILE="$BASELINE_E" "$SCRIPT"
+rm -f "$BASELINE_E"
+
+# --- Ratchet: fewer current violations than baseline is "Improved", not a --
+# --- failure ------------------------------------------------------------
+BASELINE_F="$(mktemp -t arch-lint-baseline-improved).json"
+ARCH_LINT_MODULES_ROOT="${TEST_DIR}/fixtures/violation/src" ARCH_LINT_BASELINE_FILE="$BASELINE_F" \
+  "$SCRIPT" --init-baseline >/dev/null
+check "fewer violations than baseline is Improved, still passes" 0 \
+  env ARCH_LINT_MODULES_ROOT="${TEST_DIR}/fixtures/clean/src" ARCH_LINT_BASELINE_FILE="$BASELINE_F" "$SCRIPT"
+rm -f "$BASELINE_F"
+
+# --- Missing baseline file exits 1 with a message ---------------------------
+BASELINE_G="$(mktemp -u -t arch-lint-baseline-missing).json"
+check "missing baseline file exits 1" 1 \
+  env ARCH_LINT_MODULES_ROOT="${TEST_DIR}/fixtures/clean/src" ARCH_LINT_BASELINE_FILE="$BASELINE_G" "$SCRIPT"
+
+# --- Import matching is anchored to whole module names, not substrings -----
+# "import CoreData" must not be treated as importing the "Data" module.
+BASELINE_H="$(mktemp -t arch-lint-baseline-anchor).json"
+ARCH_LINT_MODULES_ROOT="${TEST_DIR}/fixtures/import-anchor-ok/src" ARCH_LINT_FILE_GLOB='*.swift' \
+  ARCH_LINT_BASELINE_FILE="$BASELINE_H" "$SCRIPT" --init-baseline >/dev/null
+check "CoreData import does not false-positive on Data boundary" 0 \
+  env ARCH_LINT_MODULES_ROOT="${TEST_DIR}/fixtures/import-anchor-ok/src" ARCH_LINT_FILE_GLOB='*.swift' \
+  ARCH_LINT_BASELINE_FILE="$BASELINE_H" "$SCRIPT"
+rm -f "$BASELINE_H"
 
 echo ""
 if [ "$FAILURES" -gt 0 ]; then
