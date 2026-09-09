@@ -84,13 +84,48 @@ why turning this on in a codebase that already has boundary violations
 doesn't require fixing them all first — run `--init-baseline` once and only
 new violations are gated from then on.
 
+## Using it in your own CI
+
+There's no package to install — copy `architecture-lint.sh` into your repo
+(alongside a `.arch_lint_baseline.json` from `--init-baseline`), edit the
+`BOUNDARIES` array for your module graph, commit both, and gate CI on it:
+
+```yaml
+# .github/workflows/architecture-lint.yml
+name: Architecture Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run architecture-lint
+        run: ./architecture-lint.sh
+```
+
+That's the whole setup — the script and baseline file live in your repo like
+any other config, so there's nothing external for CI to fetch or pin a
+version of. If you're evaluating whether to adopt it, curl the script to try
+it against a checkout without committing it yet:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/OrenSegal/architecture-lint/main/architecture-lint.sh -o architecture-lint.sh
+chmod +x architecture-lint.sh
+./architecture-lint.sh --init-baseline
+```
+
 ## Tests
 
 ```bash
 ./tests/run.sh
 ```
 
-Ten fixture-backed cases, each asserting a real exit code against the real
+Eleven fixture-backed cases, each asserting a real exit code against the real
 script — no mocking, this is the same binary the usage example above ran:
 
 - a clean module graph passes
@@ -104,8 +139,11 @@ script — no mocking, this is the same binary the usage example above ran:
 - a missing baseline file exits 1 with a message
 - an anchored import match (`import CoreData`) doesn't false-positive against
   a `Data` boundary rule
+- a baseline file predating the `boundaries` key defaults it to 0 and warns,
+  instead of crashing
 
-CI runs this suite on every push (see the badge above).
+CI runs this suite, plus ShellCheck against the shell scripts, on every push
+(see the badge above).
 
 ## Why I built this
 

@@ -19,7 +19,7 @@ check() {
     echo "PASS  ${name}"
   else
     echo "FAIL  ${name} (expected exit ${expect_exit}, got ${actual})"
-    echo "$out" | sed 's/^/      /'
+    echo "      ${out//$'\n'/$'\n      '}"
     FAILURES=$((FAILURES + 1))
   fi
 }
@@ -107,6 +107,25 @@ check "CoreData import does not false-positive on Data boundary" 0 \
   env ARCH_LINT_MODULES_ROOT="${TEST_DIR}/fixtures/import-anchor-ok/src" ARCH_LINT_FILE_GLOB='*.swift' \
   ARCH_LINT_BASELINE_FILE="$BASELINE_H" "$SCRIPT"
 rm -f "$BASELINE_H"
+
+# --- Older baseline file missing "boundaries" key defaults to 0, warns, ----
+# --- doesn't crash -----------------------------------------------------
+BASELINE_I="$(mktemp -t arch-lint-baseline-old-format).json"
+cat > "$BASELINE_I" <<'EOF'
+{
+  "no_singletons": 0
+}
+EOF
+out_i="$(env ARCH_LINT_MODULES_ROOT="${TEST_DIR}/fixtures/clean/src" ARCH_LINT_BASELINE_FILE="$BASELINE_I" "$SCRIPT" 2>&1)"
+exit_i=$?
+if [ "$exit_i" -eq 0 ] && echo "$out_i" | grep -q "No boundaries baseline found"; then
+  echo "PASS  baseline missing boundaries key defaults to 0 and warns"
+else
+  echo "FAIL  baseline missing boundaries key defaults to 0 and warns (exit ${exit_i})"
+  echo "      ${out_i//$'\n'/$'\n      '}"
+  FAILURES=$((FAILURES + 1))
+fi
+rm -f "$BASELINE_I"
 
 echo ""
 if [ "$FAILURES" -gt 0 ]; then

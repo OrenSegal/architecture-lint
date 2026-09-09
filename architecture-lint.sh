@@ -91,7 +91,7 @@ check_no_import() {
     count=$(echo "$hits" | grep -c .)
     current_boundaries=$((current_boundaries + count))
     echo -e "${RED}x ${module} must not import ${forbidden}:${NC}"
-    echo "$hits" | sed 's/^/   /'
+    echo "   ${hits//$'\n'/$'\n   '}"
   fi
 }
 
@@ -168,7 +168,7 @@ echo "Ratchet: no_singletons (baseline=${baseline_singletons}, current=${current
 if [ "$current_singletons" -gt "$baseline_singletons" ]; then
   new_count=$((current_singletons - baseline_singletons))
   echo -e "${RED}  REGRESSION: ${new_count} new violation(s)${NC}"
-  echo "$singleton_hits" | sed 's/^/  /'
+  echo "  ${singleton_hits//$'\n'/$'\n  '}"
   VIOLATIONS=$((VIOLATIONS + new_count))
 elif [ "$current_singletons" -lt "$baseline_singletons" ]; then
   echo -e "${GREEN}  Improved: ${current_singletons} violations (baseline was ${baseline_singletons}) - shrink the baseline file${NC}"
