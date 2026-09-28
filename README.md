@@ -3,8 +3,8 @@
 [![CI](https://github.com/OrenSegal/architecture-lint/actions/workflows/ci.yml/badge.svg)](https://github.com/OrenSegal/architecture-lint/actions/workflows/ci.yml)
 
 A config-driven module-boundary linter with a ratchet baseline, extracted from
-patterns I use to keep a large production Swift codebase honest about its own
-architecture docs.
+patterns I use to keep a large Swift codebase (an iOS app in TestFlight beta)
+honest about its own architecture docs.
 
 ## The problem
 
@@ -194,6 +194,16 @@ its exit code (one also checks for a warning message). No mocking:
 
 CI runs this suite, plus ShellCheck against the shell scripts, on every push
 to `main` and on pull requests (see the badge above).
+
+## Limitations
+
+The details are in the sections above; in one place:
+
+- **The baseline counts, it doesn't remember.** Fixing one old violation and adding a new one in the same change nets to zero and passes. Anyone can re-run `--init-baseline` to raise the number. Code review has to catch both.
+- **It's a grep, not a parser.** A comment, a string, or a symbol that shares a module's name counts as a violation. Multi-line imports (Go's grouped `import ( ... )`) are missed.
+- **Only TypeScript and Swift are tested.** Python needs a different `IMPORT_KEYWORD`; Go works for single-line imports only.
+- **`no_singletons` is Swift-only** unless you edit its regex.
+- **Boundary violations have no inline exemption.** The baseline is the only way to let one through.
 
 ## Why I built this
 
