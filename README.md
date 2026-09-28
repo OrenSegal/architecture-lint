@@ -197,8 +197,9 @@ to `main` and on pull requests (see the badge above).
 
 ## Why I built this
 
-I'm a solo founder building a large production iOS app (Swift 6, strict
-concurrency, six-package architecture). There's no team to catch an
-accidental layering violation in review, so the CI gate has to. This is the
-generalized, sanitized version of a script that runs on every commit in that
-codebase.
+I'm building a large iOS app (Swift 6, strict concurrency, seven Swift
+packages, currently in TestFlight beta), and most of its code is written by
+coding agents. Agents are good at making a change work and bad at noticing
+they just imported the data layer into a view. There's no team to catch that
+in review, so a CI check has to. This is a generalized, cleaned-up version of
+the layering check that runs in that app's CI.
