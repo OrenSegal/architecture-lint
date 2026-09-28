@@ -6,9 +6,9 @@
 # Why this exists: architecture docs rot the moment nobody's forced to check
 # them. This script makes the allowed dependency graph and a structural rule
 # (no singletons) machine-checked instead of aspirational. It's designed to
-# be dropped into any modular codebase (Swift packages, TS workspaces,
-# Python packages, Go modules — anything with directories and an
-# import/grep-able syntax) with a few lines of config, not a rewrite.
+# be dropped into a modular codebase where each module is a directory and an
+# import fits on one grep-able line (tested with TypeScript and Swift; see
+# README "Languages") with a few lines of config, not a rewrite.
 #
 # Two properties make this durable in a real codebase instead of getting
 # disabled after the first false positive:
@@ -66,7 +66,7 @@ BOUNDARIES=(
 # against multiple fixture languages in tests/run.sh without editing this file.
 MODULES_ROOT="${ARCH_LINT_MODULES_ROOT:-src}"
 FILE_GLOB="${ARCH_LINT_FILE_GLOB:-*.ts}"          # e.g. "*.swift", "*.py", "*.go"
-IMPORT_KEYWORD="${ARCH_LINT_IMPORT_KEYWORD:-import}"   # e.g. "import", "from", "require("
+IMPORT_KEYWORD="${ARCH_LINT_IMPORT_KEYWORD:-import}"   # an ERE, e.g. "import", "(from|import)" for Python, 'require\('
 
 # ---------------------------------------------------------------------------
 # Boundary check — counts actual violating import lines (not just how many
@@ -98,6 +98,12 @@ check_no_import() {
 echo "Architecture Lint"
 echo "=================="
 echo ""
+
+# A wrong MODULES_ROOT would otherwise run zero checks and report clean.
+if [ ! -d "$MODULES_ROOT" ]; then
+  echo -e "${RED}Modules root not found: ${MODULES_ROOT} (set MODULES_ROOT or ARCH_LINT_MODULES_ROOT).${NC}"
+  exit 1
+fi
 
 for rule in "${BOUNDARIES[@]}"; do
   IFS='|' read -r module forbidden <<< "$rule"

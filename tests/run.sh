@@ -127,6 +127,22 @@ else
 fi
 rm -f "$BASELINE_I"
 
+# --- A modules root that doesn't exist fails instead of passing silently --
+# A typo'd or unset ARCH_LINT_MODULES_ROOT used to run zero checks and report
+# "clean", which would let a misconfigured CI job pass forever.
+BASELINE_J="$(mktemp -t arch-lint-baseline-no-root).json"
+cat > "$BASELINE_J" <<'EOF'
+{
+  "no_singletons": 0,
+  "boundaries": 0
+}
+EOF
+check "missing modules root exits 1" 1 \
+  env ARCH_LINT_MODULES_ROOT="${TEST_DIR}/fixtures/does-not-exist/src" ARCH_LINT_BASELINE_FILE="$BASELINE_J" "$SCRIPT"
+check "missing modules root exits 1 on --init-baseline" 1 \
+  env ARCH_LINT_MODULES_ROOT="${TEST_DIR}/fixtures/does-not-exist/src" ARCH_LINT_BASELINE_FILE="$BASELINE_J" "$SCRIPT" --init-baseline
+rm -f "$BASELINE_J"
+
 echo ""
 if [ "$FAILURES" -gt 0 ]; then
   echo "${FAILURES} test(s) failed"
