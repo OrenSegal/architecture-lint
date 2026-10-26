@@ -1,6 +1,6 @@
 # architecture-lint
 
-[![CI](https://github.com/OrenSegal/architecture-lint/actions/workflows/ci.yml/badge.svg)](https://github.com/OrenSegal/architecture-lint/actions/workflows/ci.yml)
+[![CI](https://github.com/OrenSegal/architecture-lint/actions/workflows/ci.yml/badge.svg)](https://github.com/OrenSegal/architecture-lint/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-black)](LICENSE)
 
 A config-driven module-boundary linter with a ratchet baseline, extracted from
 patterns I use to keep a large Swift codebase (an iOS app in TestFlight beta)
@@ -212,4 +212,4 @@ packages, currently in TestFlight beta), and most of its code is written by
 coding agents. Agents are good at making a change work and bad at noticing
 they just imported the data layer into a view. There's no team to catch that
 in review, so a CI check has to. This is a generalized, cleaned-up version of
-the layering check that runs in that app's CI.
+the layering check that runs in that app's CI. One of the app's rules stops client code from calling LLM providers directly, so every model call goes through its gateway (published as [llm-gateway-kit](https://github.com/OrenSegal/llm-gateway-kit)).
