@@ -212,4 +212,4 @@ packages, currently in TestFlight beta), and most of its code is written by
 coding agents. Agents are good at making a change work and bad at noticing
 they just imported the data layer into a view. There's no team to catch that
 in review, so a CI check has to. This is a generalized, cleaned-up version of
-the layering check that runs in that app's CI. One of the app's rules stops client code from calling LLM providers directly, so every model call goes through its gateway (published as [llm-gateway-kit](https://github.com/OrenSegal/llm-gateway-kit)).
+the layering check that runs in that app's CI. One of the app's rules stops client code from calling LLM providers directly, so every model call goes through its gateway (the gateway's caching, circuit-breaker and budget patterns are in [llm-gateway-kit](https://github.com/OrenSegal/llm-gateway-kit)).
