@@ -1,5 +1,12 @@
 # architecture-lint
 
+> **Moved.** Development of architecture-lint moved to [sous/plugins/architecture-lint](https://github.com/OrenSegal/sous/tree/main/plugins/architecture-lint). The sous copy is the maintained one; this repo is kept for history. Install it from the sous marketplace:
+>
+> ```bash
+> claude plugin marketplace add OrenSegal/sous
+> claude plugin install architecture-lint@sous
+> ```
+
 [![CI](https://github.com/OrenSegal/architecture-lint/actions/workflows/ci.yml/badge.svg)](https://github.com/OrenSegal/architecture-lint/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-black)](LICENSE)
 
 A config-driven module-boundary linter with a ratchet baseline, extracted from
